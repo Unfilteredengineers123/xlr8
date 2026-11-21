@@ -41,20 +41,19 @@ const DEPLOYED_API = 'https://xlr8-production-f5f784ee.up.railway.app/api';
  */
 const sameOriginProxyAvailable = () =>
   typeof window !== 'undefined'
-  && window.location.protocol === 'https:'
-  && /\.vercel\.app$/i.test(window.location.hostname);
+  && (
+    window.location.protocol === 'https:'
+    || window.location.hostname === 'localhost'
+    || window.location.hostname === '127.0.0.1'
+    || /\.vercel\.app$/i.test(window.location.hostname)
+  );
 
 const resolveApiBase = () => {
   /*
-   * The best base available when configuration cannot be used.
-   *
-   * Computed once and returned from every rejection branch below. Returning
-   * the absolute backend URL here instead was a real bug: VITE_API_URL is set
-   * on the deployed site — to the websocket address — so every request took a
-   * rejection branch, and the same-origin path was never reached in the one
-   * environment it was written for.
+   * In a multi-service Vercel deployment, the backend is mounted at /api on the
+   * same origin via Vercel rewrites. Fallback to /api whenever VITE_API_URL is unset.
    */
-  const fallback = sameOriginProxyAvailable() ? '/api' : DEPLOYED_API;
+  const fallback = '/api';
 
   let configured = String(import.meta.env.VITE_API_URL || '').trim();
   if (!configured) return fallback;

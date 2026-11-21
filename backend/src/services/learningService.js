@@ -27,7 +27,17 @@ import { ageFromDob } from './patientFields.js';
  * the review goes on.
  */
 
-const BASE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8001';
+const getBaseUrl = () => {
+  const raw = process.env.AI_SERVICE_URL || process.env.LLM_URL || 'http://127.0.0.1:8001';
+  return raw.endsWith('/') ? raw : `${raw}/`;
+};
+
+const resolveServiceUrl = (path = '') => {
+  const base = getBaseUrl();
+  const cleanPath = String(path).replace(/^\/+/, '');
+  return new URL(cleanPath, base).toString();
+};
+
 const LEARN_TIMEOUT_MS = Number(process.env.LEARN_TIMEOUT_MS) || 60000;
 const RETRAIN_DELAY_MS = Number(process.env.LEARN_RETRAIN_DELAY_MS) || 30000;
 // "Not worse" on the frozen benchmark: top-3 may not fall by more than this.
@@ -38,7 +48,8 @@ export const PROMOTION_TOLERANCE = 0.005;
 /** The Python service, with a longer patience than diagnosis gets. */
 const learnCall = async (path, body) => {
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const targetUrl = resolveServiceUrl(path);
+    const res = await fetch(targetUrl, {
       method: body ? 'POST' : 'GET',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,

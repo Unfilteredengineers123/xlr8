@@ -11,7 +11,17 @@
  * What it must never do is silently substitute a guess.
  */
 
-const BASE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8001';
+const getBaseUrl = () => {
+  const raw = process.env.AI_SERVICE_URL || process.env.LLM_URL || 'http://127.0.0.1:8001';
+  return raw.endsWith('/') ? raw : `${raw}/`;
+};
+
+const resolveServiceUrl = (path = '') => {
+  const base = getBaseUrl();
+  const cleanPath = String(path).replace(/^\/+/, '');
+  return new URL(cleanPath, base).toString();
+};
+
 const TIMEOUT_MS = Number(process.env.AI_SERVICE_TIMEOUT_MS) || 6000;
 
 let lastFailureAt = 0;
@@ -29,7 +39,8 @@ const call = async (path, { method = 'GET', body } = {}) => {
   if (circuitOpen()) return null;
 
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const targetUrl = resolveServiceUrl(path);
+    const res = await fetch(targetUrl, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -85,7 +96,7 @@ export const getMedicineAvailability = async (molecule, strength) =>
 export const getPrecautions = async (disease) =>
   call(`/precautions/${encodeURIComponent(disease)}`);
 
-export const aiServiceConfigured = () => Boolean(BASE_URL);
+export const aiServiceConfigured = () => Boolean(process.env.AI_SERVICE_URL || process.env.LLM_URL);
 
 /**
  * Diagnostic probe — deliberately ignores the circuit breaker.
@@ -100,18 +111,19 @@ export const aiServiceConfigured = () => Boolean(BASE_URL);
  */
 export const probeInferenceService = async () => {
   const startedAt = Date.now();
+  const targetUrl = resolveServiceUrl('health');
   try {
-    const res = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetch(targetUrl, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     const latencyMs = Date.now() - startedAt;
 
     if (!res.ok) {
-      return { reachable: false, url: BASE_URL, latency_ms: latencyMs, error: `HTTP ${res.status}` };
+      return { reachable: false, url: targetUrl, latency_ms: latencyMs, error: `HTTP ${res.status}` };
     }
 
     const body = await res.json();
     return {
       reachable: true,
-      url: BASE_URL,
+      url: targetUrl,
       latency_ms: latencyMs,
       status: body?.status ?? null,
       models: body?.models ?? null,
@@ -120,6 +132,6 @@ export const probeInferenceService = async () => {
         : null
     };
   } catch (err) {
-    return { reachable: false, url: BASE_URL, latency_ms: Date.now() - startedAt, error: err.message };
+    return { reachable: false, url: targetUrl, latency_ms: Date.now() - startedAt, error: err.message };
   }
 };

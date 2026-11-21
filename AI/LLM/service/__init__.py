@@ -1,0 +1,1 @@
+# RuralAI inference service package

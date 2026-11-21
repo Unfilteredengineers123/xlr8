@@ -115,8 +115,9 @@ const shutdown = (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`
+if (process.env.VERCEL !== '1') {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`
 ======================================================================
 🏥 VIRTUAL VILLAGE CLINIC AI BACKEND SERVER RUNNING
 ======================================================================
@@ -127,5 +128,9 @@ server.listen(PORT, '0.0.0.0', () => {
 🔍 Qdrant RAG: ${config.qdrant.url ? 'CONNECTED' : 'MOCK/FALLBACK'}
 📊 Supabase DB: ${config.supabase.url ? 'CONNECTED' : 'MOCK/FALLBACK'}
 ======================================================================
-  `);
-});
+    `);
+  });
+}
+
+export default app;
+export { server, app };
